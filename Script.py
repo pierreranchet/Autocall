@@ -4,6 +4,9 @@ import pandas as pd
 from datetime import datetime
 from scipy.optimize import minimize
 from nelson_siegel_svensson.calibrate import calibrate_nss_ols
+import plotly.graph_objects as go
+from plotly.graph_objs import Surface
+from plotly.offline import iplot, init_notebook_mode
 
 
 class Heston():
@@ -20,7 +23,10 @@ class Heston():
         self.gamma = gamma
         self.v0 = v0
 
-    def GenerateHestonPaths(self):
+    def GenerateHestonPaths(self, mat, K, rate):
+        self.maturity = mat
+        self.strike = K
+        self.rate = rate
 
         dt = self.maturity / float(self.nb_steps)
         nb_steps = np.round(self.maturity * 252).astype(int)
@@ -67,13 +73,13 @@ class Numerics(Heston):
         super().__init__(nb_simul, nb_steps, maturity, strike, rate, S_0, rho, vbar, kappa, gamma, v0)
 
     def market_data(self):
-        df = pd.read_csv('/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet/FTSE_Prices.csv', sep=";")
+        df = pd.read_csv('/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/FTSE_Prices.csv', sep=";")
         self.S_0 = 7208.81
         self.maturity_tot = np.array([(datetime.strptime(i, '%m/%d/%Y') - datetime.today()).days for i in df.Maturity])/365
         self.strike_tot = df.Strike.to_numpy('float')
         self.Prices = df.Price.to_numpy('float')
         df_rates = pd.read_csv(
-            '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet/UK OIS spot curve.csv',
+            '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/UK OIS spot curve.csv',
             sep=";")
         yield_maturities = df_rates['Maturities'].to_numpy('float')
         yields = df_rates['Rates'].to_numpy('float')
@@ -91,15 +97,16 @@ class Numerics(Heston):
         self.gamma = gamma
         self.rho = rho
 
-
         prices = []
-        for idx, val in enumerate(self.Prices):
-            self.maturity = self.maturity_tot[idx]
-            self.strike = self.strike_tot[idx]
-            self.rate = self.rate_tot[idx]
-            prices.append(self.GenerateHestonPaths())
+        #for idx, val in enumerate(self.Prices):
+            #self.maturity = self.maturity_tot[idx]
+            #self.strike = self.strike_tot[idx]
+            #self.rate = self.rate_tot[idx]
+        self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
+        prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+        #prices.append(self.GenerateHestonPaths(mat, K, rate))
 
-        prices = np.array(prices)
+        #prices = np.array(res)
         error = np.sum( (self.Prices-prices)**2 /len(self.Prices) )
 
         return error
@@ -118,12 +125,36 @@ class Numerics(Heston):
 
         result = minimize(self.prices_to_evaluate, x0, tol=1e-3, method='SLSQP', options={'maxiter': 1e4}, bounds=bnds)
         print([param for param in result.x])
+        v0, kappa, vbar, gamma, rho = [param for param in result.x]
+        self.v0 = v0
+        self.kappa = kappa
+        self.vbar = vbar
+        self.gamma = gamma
+        self.rho = rho
+        self.heston_prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+
+        fig = go.Figure(data=[
+            go.Mesh3d(x=self.maturity_tot, y=self.strike_tot, z=self.Prices, color='mediumblue',
+                      opacity=0.55)])
+        fig.add_scatter3d(x=self.maturity_tot, y=self.strike_tot, z=self.heston_prices,
+                          mode='markers')
+        fig.update_layout(
+            title_text='Market Prices 𝑀𝑒𝑠ℎ vs Calibrated Heston Prices 𝑀𝑎𝑟𝑘𝑒𝑟𝑠',
+            scene=dict(xaxis_title='TIME 𝑌𝑒𝑎𝑟𝑠',
+                       yaxis_title='STRIKES 𝑃𝑡𝑠',
+                       zaxis_title='INDEX OPTION PRICE 𝑃𝑡𝑠'),
+            height=800,
+            width=800
+        )
+        fig.show
+
         print('Hello')
 
 
 
 
-test = Numerics(nb_simul=10000, nb_steps = 252, maturity=3.0, strike=100.0, rate=0.02, S_0=100.0, rho=-0.7, vbar=0.01, kappa =0.17 , gamma= 0.02, v0 = 0.15)
+
+test = Numerics(nb_simul=1000, nb_steps = 252, maturity=3.0, strike=100.0, rate=0.02, S_0=100.0, rho=-0.7, vbar=0.01, kappa =0.17 , gamma= 0.02, v0 = 0.15)
 test.market_data()
 test.calibrate()
 
