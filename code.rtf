@@ -1,143 +1,193 @@
 {\rtf1\ansi\ansicpg1252\cocoartf2638
-\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;}
-{\colortbl;\red255\green255\blue255;\red191\green100\blue38;\red32\green32\blue32;\red153\green168\blue186;
-\red160\green0\blue163;\red128\green63\blue122;\red117\green114\blue185;\red254\green187\blue91;\red86\green132\blue173;
-\red109\green109\blue109;\red95\green96\blue103;\red88\green118\blue71;\red152\green54\blue29;}
-{\*\expandedcolortbl;;\csgenericrgb\c74902\c39216\c14902;\csgenericrgb\c12549\c12549\c12549;\csgenericrgb\c60000\c65882\c72941;
-\csgenericrgb\c62745\c0\c63922;\csgenericrgb\c50196\c24706\c47843;\csgenericrgb\c45882\c44706\c72549;\csgenericrgb\c99608\c73333\c35686;\csgenericrgb\c33725\c51765\c67843;
-\csgenericrgb\c42745\c42745\c42745;\csgenericrgb\c37255\c37647\c40392;\csgenericrgb\c34510\c46275\c27843;\csgenericrgb\c59608\c21176\c11373;}
+\cocoatextscaling0\cocoaplatform0{\fonttbl\f0\fmodern\fcharset0 Courier;\f1\fnil\fcharset0 STIXGeneral-Regular;}
+{\colortbl;\red255\green255\blue255;\red109\green109\blue109;\red32\green32\blue32;\red191\green100\blue38;
+\red153\green168\blue186;\red160\green0\blue163;\red128\green63\blue122;\red117\green114\blue185;\red254\green187\blue91;
+\red86\green132\blue173;\red95\green96\blue103;\red88\green118\blue71;\red152\green54\blue29;}
+{\*\expandedcolortbl;;\csgenericrgb\c42745\c42745\c42745;\csgenericrgb\c12549\c12549\c12549;\csgenericrgb\c74902\c39216\c14902;
+\csgenericrgb\c60000\c65882\c72941;\csgenericrgb\c62745\c0\c63922;\csgenericrgb\c50196\c24706\c47843;\csgenericrgb\c45882\c44706\c72549;\csgenericrgb\c99608\c73333\c35686;
+\csgenericrgb\c33725\c51765\c67843;\csgenericrgb\c37255\c37647\c40392;\csgenericrgb\c34510\c46275\c27843;\csgenericrgb\c59608\c21176\c11373;}
 \paperw11900\paperh16840\margl1440\margr1440\vieww20580\viewh14500\viewkind0
 \pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\pardirnatural\partightenfactor0
 
-\f0\fs22 \cf2 \cb3 import \cf4 numpy \cf2 as \cf4 np\
-\cf2 import \cf4 matplotlib.pyplot \cf2 as \cf4 plt\
-\cf2 import \cf4 pandas \cf2 as \cf4 pd\
-\cf2 from \cf4 datetime \cf2 import \cf4 datetime\
-\cf2 from \cf4 scipy.optimize \cf2 import \cf4 minimize\
-\cf2 from \cf4 nelson_siegel_svensson.calibrate \cf2 import \cf4 calibrate_nss_ols\
+\f0\fs22 \cf2 \cb3 #spot = 7323.41 as of Jun 29\
+\cf4 import \cf5 numpy \cf4 as \cf5 np\
+\cf4 import \cf5 matplotlib.pyplot \cf4 as \cf5 plt\
+\cf4 import \cf5 pandas \cf4 as \cf5 pd\
+\cf4 from \cf5 datetime \cf4 import \cf5 datetime\
+\cf4 from \cf5 scipy.optimize \cf4 import \cf5 minimize\
+\cf4 from \cf5 nelson_siegel_svensson \cf4 import \cf5 NelsonSiegelSvenssonCurve\cf4 , \cf5 NelsonSiegelCurve\
+\cf4 from \cf5 nelson_siegel_svensson.calibrate \cf4 import \cf5 calibrate_ns_ols\cf4 , \cf5 calibrate_nss_ols\
+\cf4 import \cf5 plotly.graph_objects \cf4 as \cf5 go\
+\cf4 from \cf5 plotly.graph_objs \cf4 import \cf5 Surface\
+\cf4 from \cf5 plotly.offline \cf4 import \cf5 iplot\cf4 , \cf5 init_notebook_mode\
 \
 \
-\cf2 class \cf4 Heston():\
-    \cf2 def \cf5 __init__\cf4 (\cf6 self\cf2 , \cf4 nb_simul: \cf7 int\cf2 , \cf4 nb_steps\cf2 , \cf4 maturity: \cf7 float\cf2 , \cf4 strike: \cf7 float\cf2 , \cf4 rate: \cf7 float\cf2 , \cf4 S_0: \cf7 float\cf2 , \cf4 rho: \cf7 float\cf2 , \cf4 vbar:\cf7 float\cf2 , \cf4 kappa: \cf7 float\cf2 , \cf4 gamma: \cf7 float\cf2 , \cf4 v0: \cf7 float\cf4 ):\
-        \cf6 self\cf4 .nb_simul = nb_simul\
-        \cf6 self\cf4 .nb_steps = nb_steps\
-        \cf6 self\cf4 .maturity = maturity\
-        \cf6 self\cf4 .strike = strike\
-        \cf6 self\cf4 .rate = rate\
-        \cf6 self\cf4 .S_0 = S_0\
-        \cf6 self\cf4 .rho = rho\
-        \cf6 self\cf4 .vbar = vbar\
-        \cf6 self\cf4 .kappa = kappa\
-        \cf6 self\cf4 .gamma = gamma\
-        \cf6 self\cf4 .v0 = v0\
+\cf4 class \cf5 Heston():\
+    \cf4 def \cf6 __init__\cf5 (\cf7 self\cf4 , \cf5 nb_simul: \cf8 int\cf4 , \cf5 nb_steps\cf4 , \cf5 maturity: \cf8 float\cf4 , \cf5 strike: \cf8 float\cf4 , \cf5 rate: \cf8 float\cf4 , \cf5 S_0: \cf8 float\cf4 , \cf5 rho: \cf8 float\cf4 , \cf5 vbar:\cf8 float\cf4 , \cf5 kappa: \cf8 float\cf4 , \cf5 gamma: \cf8 float\cf4 , \cf5 v0: \cf8 float\cf5 ):\
+        \cf7 self\cf5 .nb_simul = nb_simul\
+        \cf7 self\cf5 .nb_steps = nb_steps\
+        \cf7 self\cf5 .maturity = maturity\
+        \cf7 self\cf5 .strike = strike\
+        \cf7 self\cf5 .rate = rate\
+        \cf7 self\cf5 .S_0 = S_0\
+        \cf7 self\cf5 .rho = rho\
+        \cf7 self\cf5 .vbar = vbar\
+        \cf7 self\cf5 .kappa = kappa\
+        \cf7 self\cf5 .gamma = gamma\
+        \cf7 self\cf5 .v0 = v0\
 \
-    \cf2 def \cf8 GenerateHestonPaths\cf4 (\cf6 self\cf4 ):\
+    \cf4 def \cf9 GenerateHestonPaths\cf5 (\cf7 self\cf4 , \cf5 mat\cf4 , \cf5 K\cf4 , \cf5 rate):\
+    \cf2 #def GenerateHestonPaths(self):\
+        \cf7 self\cf5 .maturity = mat\
+        \cf7 self\cf5 .strike = K\
+        \cf7 self\cf5 .rate = rate\
 \
-        dt = \cf6 self\cf4 .maturity / \cf7 float\cf4 (\cf6 self\cf4 .nb_steps)\
-        nb_steps = np.round(\cf6 self\cf4 .maturity * \cf9 252\cf4 ).astype(\cf7 int\cf4 )\
+        dt = \cf7 self\cf5 .maturity / \cf8 float\cf5 (\cf7 self\cf5 .nb_steps)\
+        \cf2 #nb_steps = np.round(self.maturity * 252).astype(int)\
 \
-        Z1 = np.random.normal(\cf9 0.0\cf2 , \cf9 1.0\cf2 , \cf4 [\cf6 self\cf4 .nb_simul\cf2 , \cf4 nb_steps])\
-        Z2 = np.random.normal(\cf9 0.0\cf2 , \cf9 1.0\cf2 , \cf4 [\cf6 self\cf4 .nb_simul\cf2 , \cf4 nb_steps])\
-        W1 = np.zeros([\cf6 self\cf4 .nb_simul\cf2 , \cf4 nb_steps + \cf9 1\cf4 ])\
-        W2 = np.zeros([\cf6 self\cf4 .nb_simul\cf2 , \cf4 nb_steps + \cf9 1\cf4 ])\
-        V = np.zeros([\cf6 self\cf4 .nb_simul\cf2 , \cf4 nb_steps + \cf9 1\cf4 ])\
-        X = np.zeros([\cf6 self\cf4 .nb_simul\cf2 , \cf4 nb_steps + \cf9 1\cf4 ])\
-        V[:\cf2 , \cf9 0\cf4 ] = \cf6 self\cf4 .v0\
-        X[:\cf2 , \cf9 0\cf4 ] = np.log(\cf6 self\cf4 .S_0)\
+        \cf5 Z1 = np.random.normal(\cf10 0.0\cf4 , \cf10 1.0\cf4 , \cf5 [\cf7 self\cf5 .nb_simul\cf4 , \cf7 self\cf5 .nb_steps])\
+        Z2 = np.random.normal(\cf10 0.0\cf4 , \cf10 1.0\cf4 , \cf5 [\cf7 self\cf5 .nb_simul\cf4 , \cf7 self\cf5 .nb_steps])\
+        W1 = np.zeros([\cf7 self\cf5 .nb_simul\cf4 , \cf7 self\cf5 .nb_steps + \cf10 1\cf5 ])\
+        W2 = np.zeros([\cf7 self\cf5 .nb_simul\cf4 , \cf7 self\cf5 .nb_steps + \cf10 1\cf5 ])\
+        V = np.zeros([\cf7 self\cf5 .nb_simul\cf4 , \cf7 self\cf5 .nb_steps + \cf10 1\cf5 ])\
+        X = np.zeros([\cf7 self\cf5 .nb_simul\cf4 , \cf7 self\cf5 .nb_steps + \cf10 1\cf5 ])\
+        V[:\cf4 , \cf10 0\cf5 ] = \cf7 self\cf5 .v0\
+        X[:\cf4 , \cf10 0\cf5 ] = np.log(\cf7 self\cf5 .S_0)\
 \
-        time = np.zeros([nb_steps + \cf9 1\cf4 ])\
+        time = np.zeros([\cf7 self\cf5 .nb_steps + \cf10 1\cf5 ])\
 \
-        \cf2 for \cf4 i \cf2 in \cf7 range\cf4 (\cf9 0\cf2 , \cf4 nb_steps):\
-            \cf10 # making sure that samples from normal have mean 0 and variance 1\
-            \cf2 if \cf6 self\cf4 .nb_simul > \cf9 1\cf4 :\
-                Z1[:\cf2 , \cf4 i] = (Z1[:\cf2 , \cf4 i] - np.mean(Z1[:\cf2 , \cf4 i])) / np.std(Z1[:\cf2 , \cf4 i])\
-                Z2[:\cf2 , \cf4 i] = (Z2[:\cf2 , \cf4 i] - np.mean(Z2[:\cf2 , \cf4 i])) / np.std(Z2[:\cf2 , \cf4 i])\
-            Z2[:\cf2 , \cf4 i] = \cf6 self\cf4 .rho * Z1[:\cf2 , \cf4 i] + np.sqrt(\cf9 1.0 \cf4 - \cf6 self\cf4 .rho ** \cf9 2\cf4 ) * Z2[:\cf2 , \cf4 i]\
+        \cf4 for \cf5 i \cf4 in \cf8 range\cf5 (\cf10 0\cf4 , \cf7 self\cf5 .nb_steps):\
+            \cf2 # making sure that samples from normal have mean 0 and variance 1\
+            \cf4 if \cf7 self\cf5 .nb_simul > \cf10 1\cf5 :\
+                Z1[:\cf4 , \cf5 i] = (Z1[:\cf4 , \cf5 i] - np.mean(Z1[:\cf4 , \cf5 i])) / np.std(Z1[:\cf4 , \cf5 i])\
+                Z2[:\cf4 , \cf5 i] = (Z2[:\cf4 , \cf5 i] - np.mean(Z2[:\cf4 , \cf5 i])) / np.std(Z2[:\cf4 , \cf5 i])\
+            Z2[:\cf4 , \cf5 i] = \cf7 self\cf5 .rho * Z1[:\cf4 , \cf5 i] + np.sqrt(\cf10 1.0 \cf5 - \cf7 self\cf5 .rho ** \cf10 2\cf5 ) * Z2[:\cf4 , \cf5 i]\
 \
-            W1[:\cf2 , \cf4 i + \cf9 1\cf4 ] = W1[:\cf2 , \cf4 i] + np.power(dt\cf2 , \cf9 0.5\cf4 ) * Z1[:\cf2 , \cf4 i]\
-            W2[:\cf2 , \cf4 i + \cf9 1\cf4 ] = W2[:\cf2 , \cf4 i] + np.power(dt\cf2 , \cf9 0.5\cf4 ) * Z2[:\cf2 , \cf4 i]\
+            W1[:\cf4 , \cf5 i + \cf10 1\cf5 ] = W1[:\cf4 , \cf5 i] + np.power(dt\cf4 , \cf10 0.5\cf5 ) * Z1[:\cf4 , \cf5 i]\
+            W2[:\cf4 , \cf5 i + \cf10 1\cf5 ] = W2[:\cf4 , \cf5 i] + np.power(dt\cf4 , \cf10 0.5\cf5 ) * Z2[:\cf4 , \cf5 i]\
 \
-            \cf10 # Truncated boundary condition\
-            \cf4 V[:\cf2 , \cf4 i + \cf9 1\cf4 ] = V[:\cf2 , \cf4 i] + \cf6 self\cf4 .kappa * (\cf6 self\cf4 .vbar - V[:\cf2 , \cf4 i]) * dt + \cf6 self\cf4 .gamma * np.sqrt(V[:\cf2 , \cf4 i]) * (W1[:\cf2 , \cf4 i + \cf9 1\cf4 ] - W1[:\cf2 , \cf4 i])\
-            V[:\cf2 , \cf4 i + \cf9 1\cf4 ] = np.maximum(V[:\cf2 , \cf4 i + \cf9 1\cf4 ]\cf2 , \cf9 0.0\cf4 )\
+            \cf2 # Truncated boundary condition\
+            \cf5 V[:\cf4 , \cf5 i + \cf10 1\cf5 ] = V[:\cf4 , \cf5 i] + \cf7 self\cf5 .kappa * (\cf7 self\cf5 .vbar - V[:\cf4 , \cf5 i]) * dt + \cf7 self\cf5 .gamma * np.sqrt(V[:\cf4 , \cf5 i]) * (W1[:\cf4 , \cf5 i + \cf10 1\cf5 ] - W1[:\cf4 , \cf5 i])\
+            V[:\cf4 , \cf5 i + \cf10 1\cf5 ] = np.maximum(V[:\cf4 , \cf5 i + \cf10 1\cf5 ]\cf4 , \cf10 0.0\cf5 )\
 \
-            X[:\cf2 , \cf4 i + \cf9 1\cf4 ] = X[:\cf2 , \cf4 i] + (\cf6 self\cf4 .rate - \cf9 0.5 \cf4 * V[:\cf2 , \cf4 i]) * dt + np.sqrt(V[:\cf2 , \cf4 i]) * (W2[:\cf2 , \cf4 i + \cf9 1\cf4 ] - W2[:\cf2 , \cf4 i])\
-            time[i + \cf9 1\cf4 ] = time[i] + dt\
+            X[:\cf4 , \cf5 i + \cf10 1\cf5 ] = X[:\cf4 , \cf5 i] + (\cf7 self\cf5 .rate - \cf10 0.5 \cf5 * V[:\cf4 , \cf5 i]) * dt + np.sqrt(V[:\cf4 , \cf5 i]) * (W2[:\cf4 , \cf5 i + \cf10 1\cf5 ] - W2[:\cf4 , \cf5 i])\
+            time[i + \cf10 1\cf5 ] = time[i] + dt\
 \
-        \cf10 # Compute exponent\
-        \cf4 S = np.exp(X)\
-        \cf11 paths \cf4 = \{\cf12 "time"\cf4 : time\cf2 , \cf12 "S"\cf4 : S[:-\cf9 1\cf4 ]\}\
-        \cf2 return \cf4 np.exp(-\cf6 self\cf4 .rate*\cf6 self\cf4 .maturity)*np.mean(np.max(S[:\cf2 ,\cf4 -\cf9 1\cf4 ] - \cf6 self\cf4 .strike\cf2 , \cf9 0\cf4 ))\
-\
-\
-\
+        \cf2 # Compute exponent\
+        \cf5 S = np.exp(X)\
+        \cf11 paths \cf5 = \{\cf12 "time"\cf5 : time\cf4 , \cf12 "S"\cf5 : S[:-\cf10 1\cf5 ]\}\
+        \cf4 return \cf5 np.exp(-\cf7 self\cf5 .rate* \cf7 self\cf5 .maturity) * np.mean(np.maximum(\cf7 self\cf5 .strike - S[:\cf4 ,\cf5 -\cf10 1\cf5 ]\cf4 , \cf10 0\cf5 ))\
+        \cf2 #return np.exp(-self.rate*self.maturity)*np.mean(np.max(self.strike - S[:,-1], 0))\
 \
 \
-\cf2 class \cf4 Numerics(Heston):\
-    \cf2 def \cf5 __init__\cf4 (\cf6 self\cf2 , \cf4 nb_simul\cf2 , \cf4 nb_steps\cf2 , \cf4 maturity\cf2 , \cf4 strike\cf2 , \cf4 rate\cf2 , \cf4 S_0\cf2 , \cf4 rho\cf2 , \cf4 vbar\cf2 , \cf4 kappa\cf2 , \cf4 gamma\cf2 , \cf4 v0):\
-        \cf7 super\cf4 ().\cf5 __init__\cf4 (nb_simul\cf2 , \cf4 nb_steps\cf2 , \cf4 maturity\cf2 , \cf4 strike\cf2 , \cf4 rate\cf2 , \cf4 S_0\cf2 , \cf4 rho\cf2 , \cf4 vbar\cf2 , \cf4 kappa\cf2 , \cf4 gamma\cf2 , \cf4 v0)\
 \
-    \cf2 def \cf8 market_data\cf4 (\cf6 self\cf4 ):\
-        df = pd.read_csv(\cf12 '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet/FTSE_Prices.csv'\cf2 , \cf13 sep\cf4 =\cf12 ";"\cf4 )\
-        \cf6 self\cf4 .S_0 = \cf9 7208.81\
-        \cf6 self\cf4 .maturity_tot = np.array([(datetime.strptime(i\cf2 , \cf12 '%m/%d/%Y'\cf4 ) - datetime.today()).days \cf2 for \cf4 i \cf2 in \cf4 df.Maturity])/\cf9 365\
-        \cf6 self\cf4 .strike_tot = df.Strike.to_numpy(\cf12 'float'\cf4 )\
-        \cf6 self\cf4 .Prices = df.Price.to_numpy(\cf12 'float'\cf4 )\
+\
+\
+\cf4 class \cf5 Numerics(Heston):\
+    \cf4 def \cf6 __init__\cf5 (\cf7 self\cf4 , \cf5 nb_simul\cf4 , \cf5 nb_steps\cf4 , \cf5 maturity\cf4 , \cf5 strike\cf4 , \cf5 rate\cf4 , \cf5 S_0\cf4 , \cf5 rho\cf4 , \cf5 vbar\cf4 , \cf5 kappa\cf4 , \cf5 gamma\cf4 , \cf5 v0):\
+        \cf8 super\cf5 ().\cf6 __init__\cf5 (nb_simul\cf4 , \cf5 nb_steps\cf4 , \cf5 maturity\cf4 , \cf5 strike\cf4 , \cf5 rate\cf4 , \cf5 S_0\cf4 , \cf5 rho\cf4 , \cf5 vbar\cf4 , \cf5 kappa\cf4 , \cf5 gamma\cf4 , \cf5 v0)\
+\
+    \cf4 def \cf9 market_data\cf5 (\cf7 self\cf5 ):\
+        df = pd.read_csv(\cf12 '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/FTSE_Prices.csv'\cf4 , \cf13 sep\cf5 =\cf12 ";"\cf5 )\
+        \cf7 self\cf5 .S_0 = \cf10 7323.41\
+        \cf7 self\cf5 .maturity_tot = np.array([(datetime.strptime(i\cf4 , \cf12 '%m/%d/%Y'\cf5 ) - datetime.today()).days \cf4 for \cf5 i \cf4 in \cf5 df.Maturity])/\cf10 365\
+        \cf7 self\cf5 .strike_tot = df.Strike.to_numpy(\cf12 'float'\cf5 )\
+        \cf7 self\cf5 .Prices = df.Price.to_numpy(\cf12 'float'\cf5 )\
         df_rates = pd.read_csv(\
-            \cf12 '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet/UK OIS spot curve.csv'\cf2 ,\
-            \cf13 sep\cf4 =\cf12 ";"\cf4 )\
-        yield_maturities = df_rates[\cf12 'Maturities'\cf4 ].to_numpy(\cf12 'float'\cf4 )\
-        yields = df_rates[\cf12 'Rates'\cf4 ].to_numpy(\cf12 'float'\cf4 )\
-        curve_fit\cf2 , \cf4 status = calibrate_nss_ols(yield_maturities\cf2 , \cf4 yields)\
+            \cf12 '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/UK OIS spot curve.csv'\cf4 ,\
+            \cf13 sep\cf5 =\cf12 ";"\cf5 )\
+        yield_maturities = df_rates[\cf12 'Maturities'\cf5 ].to_numpy(\cf12 'float'\cf5 )\
+        yields = df_rates[\cf12 'Rates'\cf5 ].to_numpy(\cf12 'float'\cf5 )/\cf10 100\
+        \cf5 curve_fit\cf4 , \cf5 status = calibrate_ns_ols(yield_maturities\cf4 , \cf5 yields\cf4 , \cf13 tau0\cf5 =\cf10 1.0\cf5 )\
         vfunc = np.vectorize(curve_fit)\
-        \cf6 self\cf4 .rate_tot = vfunc(\cf6 self\cf4 .maturity_tot)/\cf9 100\
+        \cf7 self\cf5 .rate_tot = vfunc(\cf7 self\cf5 .maturity_tot)\
 \
 \
 \
-    \cf2 def \cf8 prices_to_evaluate\cf4 (\cf6 self\cf2 , \cf4 x):\
-        v0\cf2 , \cf4 kappa\cf2 , \cf4 vbar\cf2 , \cf4 gamma\cf2 , \cf4 rho = [param \cf2 for \cf4 param \cf2 in \cf4 x]\
-        \cf6 self\cf4 .v0 = v0\
-        \cf6 self\cf4 .kappa = kappa\
-        \cf6 self\cf4 .vbar = vbar\
-        \cf6 self\cf4 .gamma = gamma\
-        \cf6 self\cf4 .rho = rho\
+    \cf4 def \cf9 prices_to_evaluate\cf5 (\cf7 self\cf4 , \cf5 x):\
+        v0\cf4 , \cf5 kappa\cf4 , \cf5 vbar\cf4 , \cf5 gamma\cf4 , \cf5 rho = [param \cf4 for \cf5 param \cf4 in \cf5 x]\
+        \cf7 self\cf5 .v0 = v0\
+        \cf7 self\cf5 .kappa = kappa\
+        \cf7 self\cf5 .vbar = vbar\
+        \cf7 self\cf5 .gamma = gamma\
+        \cf7 self\cf5 .rho = rho\
 \
+        \cf11 prices \cf5 = []\
+        \cf2 #for idx, val in enumerate(self.Prices):\
+            #self.maturity = self.maturity_tot[idx]\
+            #self.strike = self.strike_tot[idx]\
+            #self.rate = self.rate_tot[idx]\
+        \cf7 self\cf5 .vec_Heston_price = np.vectorize(\cf7 self\cf5 .GenerateHestonPaths)\
+        prices = \cf7 self\cf5 .vec_Heston_price(\cf7 self\cf5 .maturity_tot\cf4 , \cf7 self\cf5 .strike_tot\cf4 , \cf7 self\cf5 .rate_tot)\
+        \cf11 dd \cf5 = np.concatenate((prices\cf4 , \cf7 self\cf5 .Prices)\cf4 , \cf13 axis \cf5 = \cf10 0\cf5 )\
+        \cf2 #prices.append(self.GenerateHestonPaths(mat, K, rate))\
 \
-        prices = []\
-        \cf2 for \cf4 idx\cf2 , \cf4 val \cf2 in \cf7 enumerate\cf4 (\cf6 self\cf4 .Prices):\
-            \cf6 self\cf4 .maturity = \cf6 self\cf4 .maturity_tot[idx]\
-            \cf6 self\cf4 .strike = \cf6 self\cf4 .strike_tot[idx]\
-            \cf6 self\cf4 .rate = \cf6 self\cf4 .rate_tot[idx]\
-            prices.append(\cf6 self\cf4 .GenerateHestonPaths())\
+        #df_test = pd.concat([self.maturity_tot, self.strike_tot, self.rate_tot, prices])\
+        #prices = np.array(res)\
+        \cf5 error = np.sum( (\cf7 self\cf5 .Prices-prices)**\cf10 2 \cf5 ) /\cf8 len\cf5 (\cf7 self\cf5 .Prices)\
 \
-        prices = np.array(prices)\
-        error = np.sum( (\cf6 self\cf4 .Prices-prices)**\cf9 2 \cf4 /\cf7 len\cf4 (\cf6 self\cf4 .Prices) )\
+        \cf4 return \cf5 error\
 \
-        \cf2 return \cf4 error\
+    \cf4 def \cf9 calibrate\cf5 (\cf7 self\cf5 ):\
 \
-    \cf2 def \cf8 calibrate\cf4 (\cf6 self\cf4 ):\
-\
-        params = \{\cf12 "v0"\cf4 : \{\cf12 "x0"\cf4 : \cf9 0.1\cf2 , \cf12 "bd"\cf4 : [\cf9 1e-3\cf2 , \cf9 0.1\cf4 ]\}\cf2 ,\
-                  \cf12 "kappa"\cf4 : \{\cf12 "x0"\cf4 : \cf9 3\cf2 , \cf12 "bd"\cf4 : [\cf9 1e-3\cf2 , \cf9 5\cf4 ]\}\cf2 ,\
-                  \cf12 "vbar"\cf4 : \{\cf12 "x0"\cf4 : \cf9 0.05\cf2 , \cf12 "bd"\cf4 : [\cf9 1e-3\cf2 , \cf9 0.1\cf4 ]\}\cf2 ,\
-                  \cf12 "gamma"\cf4 : \{\cf12 "x0"\cf4 : \cf9 0.3\cf2 , \cf12 "bd"\cf4 : [\cf9 1e-2\cf2 , \cf9 1\cf4 ]\}\cf2 ,\
-                  \cf12 "rho"\cf4 : \{\cf12 "x0"\cf4 : -\cf9 0.8\cf2 , \cf12 "bd"\cf4 : [-\cf9 1\cf2 , \cf9 0\cf4 ]\}\
+        params = \{\cf12 "v0"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.1\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 0.3\cf5 ]\}\cf4 ,\
+                  \cf12 "kappa"\cf5 : \{\cf12 "x0"\cf5 : \cf10 3\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 5\cf5 ]\}\cf4 ,\
+                  \cf12 "vbar"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.04\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 0.3\cf5 ]\}\cf4 ,\
+                  \cf12 "gamma"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.2\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-2\cf4 , \cf10 1\cf5 ]\}\cf4 ,\
+                  \cf12 "rho"\cf5 : \{\cf12 "x0"\cf5 : -\cf10 0.57\cf4 , \cf12 "bd"\cf5 : [-\cf10 1\cf4 , \cf10 0\cf5 ]\}\
                   \}\
 \
-        x0 = [param[\cf12 "x0"\cf4 ] \cf2 for \cf4 key\cf2 , \cf4 param \cf2 in \cf4 params.items()]\
-        bnds = [param[\cf12 "bd"\cf4 ] \cf2 for \cf4 key\cf2 , \cf4 param \cf2 in \cf4 params.items()]\
+        x0 = [param[\cf12 "x0"\cf5 ] \cf4 for \cf5 key\cf4 , \cf5 param \cf4 in \cf5 params.items()]\
+        bnds = [param[\cf12 "bd"\cf5 ] \cf4 for \cf5 key\cf4 , \cf5 param \cf4 in \cf5 params.items()]\
 \
-        result = minimize(\cf6 self\cf4 .prices_to_evaluate\cf2 , \cf4 x0\cf2 , \cf13 tol\cf4 =\cf9 1e-3\cf2 , \cf13 method\cf4 =\cf12 'SLSQP'\cf2 , \cf13 options\cf4 =\{\cf12 'maxiter'\cf4 : \cf9 1e4\cf4 \}\cf2 , \cf13 bounds\cf4 =bnds)\
-        \cf7 print\cf4 ([param \cf2 for \cf4 param \cf2 in \cf4 result.x])\
-        \cf7 print\cf4 (\cf12 'Hello'\cf4 )\
+        result = minimize(\cf7 self\cf5 .prices_to_evaluate\cf4 , \cf5 x0\cf4 , \cf13 tol\cf5 =\cf10 1e-3\cf4 , \cf13 method\cf5 =\cf12 'SLSQP'\cf4 , \cf13 options\cf5 =\{\cf12 'maxiter'\cf5 : \cf10 1e4\cf5 \}\cf4 , \cf13 bounds\cf5 =bnds)\
+        \cf8 print\cf5 ([param \cf4 for \cf5 param \cf4 in \cf5 result.x])\
+        v0\cf4 , \cf5 kappa\cf4 , \cf5 vbar\cf4 , \cf5 gamma\cf4 , \cf5 rho = [param \cf4 for \cf5 param \cf4 in \cf5 result.x]\
+        \cf7 self\cf5 .v0 = v0\
+        \cf7 self\cf5 .kappa = kappa\
+        \cf7 self\cf5 .vbar = vbar\
+        \cf7 self\cf5 .gamma = gamma\
+        \cf7 self\cf5 .rho = rho\
+        \cf7 self\cf5 .heston_prices = \cf7 self\cf5 .vec_Heston_price(\cf7 self\cf5 .maturity_tot\cf4 , \cf7 self\cf5 .strike_tot\cf4 , \cf7 self\cf5 .rate_tot)\
+\
+        fig = go.Figure(\cf13 data\cf5 =[\
+            go.Mesh3d(\cf13 x\cf5 =\cf7 self\cf5 .maturity_tot\cf4 , \cf13 y\cf5 =\cf7 self\cf5 .strike_tot\cf4 , \cf13 z\cf5 =\cf7 self\cf5 .Prices\cf4 , \cf13 color\cf5 =\cf12 'mediumblue'\cf4 ,\
+                      \cf13 opacity\cf5 =\cf10 0.55\cf5 )])\
+        fig.add_scatter3d(\cf13 x\cf5 =\cf7 self\cf5 .maturity_tot\cf4 , \cf13 y\cf5 =\cf7 self\cf5 .strike_tot\cf4 , \cf13 z\cf5 =\cf7 self\cf5 .heston_prices\cf4 ,\
+                          \cf13 mode\cf5 =\cf12 'markers'\cf5 )\
+        fig.update_layout(\
+            \cf13 title_text\cf5 =\cf12 'Market Prices 
+\f1 \uc0\u55349 \u56384 \u55349 \u56402 \u55349 \u56416 \u8462 
+\f0  vs Calibrated Heston Prices 
+\f1 \uc0\u55349 \u56384 \u55349 \u56398 \u55349 \u56415 \u55349 \u56408 \u55349 \u56402 \u55349 \u56415 \u55349 \u56416 
+\f0 '\cf4 ,\
+            \cf13 scene\cf5 =\cf8 dict\cf5 (\cf13 xaxis_title\cf5 =\cf12 'TIME 
+\f1 \uc0\u55349 \u56396 \u55349 \u56402 \u55349 \u56398 \u55349 \u56415 \u55349 \u56416 
+\f0 '\cf4 ,\
+                       \cf13 yaxis_title\cf5 =\cf12 'STRIKES 
+\f1 \uc0\u55349 \u56387 \u55349 \u56417 \u55349 \u56416 
+\f0 '\cf4 ,\
+                       \cf13 zaxis_title\cf5 =\cf12 'INDEX OPTION PRICE 
+\f1 \uc0\u55349 \u56387 \u55349 \u56417 \u55349 \u56416 
+\f0 '\cf5 )\cf4 ,\
+            \cf13 height\cf5 =\cf10 800\cf4 ,\
+            \cf13 width\cf5 =\cf10 800\
+        \cf5 )\
+        fig.show\
+\
+        \cf8 print\cf5 (\cf12 'Hello'\cf5 )\
 \
 \
 \
 \
-test = Numerics(\cf13 nb_simul\cf4 =\cf9 10000\cf2 , \cf13 nb_steps \cf4 = \cf9 252\cf2 , \cf13 maturity\cf4 =\cf9 3.0\cf2 , \cf13 strike\cf4 =\cf9 100.0\cf2 , \cf13 rate\cf4 =\cf9 0.02\cf2 , \cf13 S_0\cf4 =\cf9 100.0\cf2 , \cf13 rho\cf4 =-\cf9 0.7\cf2 , \cf13 vbar\cf4 =\cf9 0.01\cf2 , \cf13 kappa \cf4 =\cf9 0.17 \cf2 , \cf13 gamma\cf4 = \cf9 0.02\cf2 , \cf13 v0 \cf4 = \cf9 0.15\cf4 )\
+\cf12 """\
+test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate=0.02, S_0=7208.81, rho=-0.8, vbar=0.10, kappa =0.17 , gamma= 0.2, v0 = 0.10)\
 test.market_data()\
 test.calibrate()\
-\
+"""\
+\cf5 t = Numerics(\cf10 1000\cf4 , \cf10 1000\cf4 , \cf10 2\cf4 , \cf10 7250\cf4 , \cf10 0.02\cf4 , \cf10 7323.41\cf4 , \cf5 -\cf10 0.57\cf4 , \cf10 0.04\cf4 , \cf10 1.58\cf4 , \cf10 0.2\cf4 , \cf10 0.1\cf5 )\
+t.market_data()\
+t.calibrate()\
 \
 \
 }

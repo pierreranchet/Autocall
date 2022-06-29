@@ -119,17 +119,17 @@ class Numerics(Heston):
 
     def calibrate(self):
 
-        params = {"v0": {"x0": 0.1, "bd": [1e-3, 0.3]},
-                  "kappa": {"x0": 3, "bd": [1e-3, 5]},
-                  "vbar": {"x0": 0.04, "bd": [1e-3, 0.3]},
-                  "gamma": {"x0": 0.2, "bd": [1e-2, 1]},
-                  "rho": {"x0": -0.57, "bd": [-1, 0]}
+        params = {"v0": {"x0": 0.1, "bd": [1e-3, 1]},
+                  "kappa": {"x0": 3, "bd": [1e-3, 10]},
+                  "vbar": {"x0": 0.04, "bd": [1e-3, 0.8]},
+                  "gamma": {"x0": 0.2, "bd": [1e-2, 2]},
+                  "rho": {"x0": -0.57, "bd": [-1, 1]}
                   }
 
         x0 = [param["x0"] for key, param in params.items()]
         bnds = [param["bd"] for key, param in params.items()]
 
-        result = minimize(self.prices_to_evaluate, x0, tol=1e-3, method='SLSQP', options={'maxiter': 1e4}, bounds=bnds)
+        result = minimize(self.prices_to_evaluate, x0, tol=1e-3, method='Nelder-Mead', options={'maxiter': 1e4}, bounds=bnds)
         print([param for param in result.x])
         v0, kappa, vbar, gamma, rho = [param for param in result.x]
         self.v0 = v0
