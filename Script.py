@@ -1,9 +1,11 @@
+#spot = 7323.41 as of Jun 29
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
 from scipy.optimize import minimize
-from nelson_siegel_svensson.calibrate import calibrate_nss_ols
+from nelson_siegel_svensson import NelsonSiegelSvenssonCurve, NelsonSiegelCurve
+from nelson_siegel_svensson.calibrate import calibrate_ns_ols, calibrate_nss_ols
 import plotly.graph_objects as go
 from plotly.graph_objs import Surface
 from plotly.offline import iplot, init_notebook_mode
@@ -23,26 +25,27 @@ class Heston():
         self.gamma = gamma
         self.v0 = v0
 
-    def GenerateHestonPaths(self, mat, K, rate):
-        self.maturity = mat
-        self.strike = K
-        self.rate = rate
+    #def GenerateHestonPaths(self, mat, K, rate):
+    def GenerateHestonPaths(self):
+        #self.maturity = mat
+        #self.strike = K
+        #self.rate = rate
 
         dt = self.maturity / float(self.nb_steps)
-        nb_steps = np.round(self.maturity * 252).astype(int)
+        #nb_steps = np.round(self.maturity * 252).astype(int)
 
-        Z1 = np.random.normal(0.0, 1.0, [self.nb_simul, nb_steps])
-        Z2 = np.random.normal(0.0, 1.0, [self.nb_simul, nb_steps])
-        W1 = np.zeros([self.nb_simul, nb_steps + 1])
-        W2 = np.zeros([self.nb_simul, nb_steps + 1])
-        V = np.zeros([self.nb_simul, nb_steps + 1])
-        X = np.zeros([self.nb_simul, nb_steps + 1])
+        Z1 = np.random.normal(0.0, 1.0, [self.nb_simul, self.nb_steps])
+        Z2 = np.random.normal(0.0, 1.0, [self.nb_simul, self.nb_steps])
+        W1 = np.zeros([self.nb_simul, self.nb_steps + 1])
+        W2 = np.zeros([self.nb_simul, self.nb_steps + 1])
+        V = np.zeros([self.nb_simul, self.nb_steps + 1])
+        X = np.zeros([self.nb_simul, self.nb_steps + 1])
         V[:, 0] = self.v0
         X[:, 0] = np.log(self.S_0)
 
-        time = np.zeros([nb_steps + 1])
+        time = np.zeros([self.nb_steps + 1])
 
-        for i in range(0, nb_steps):
+        for i in range(0, self.nb_steps):
             # making sure that samples from normal have mean 0 and variance 1
             if self.nb_simul > 1:
                 Z1[:, i] = (Z1[:, i] - np.mean(Z1[:, i])) / np.std(Z1[:, i])
@@ -62,7 +65,8 @@ class Heston():
         # Compute exponent
         S = np.exp(X)
         paths = {"time": time, "S": S[:-1]}
-        return np.exp(-self.rate*self.maturity)*np.mean(np.max(self.strike - S[:,-1], 0))
+        return np.exp(-self.rate* self.maturity) * np.mean(np.maximum(self.strike - S[:,-1], 0))
+        #return np.exp(-self.rate*self.maturity)*np.mean(np.max(self.strike - S[:,-1], 0))
 
 
 
@@ -74,7 +78,7 @@ class Numerics(Heston):
 
     def market_data(self):
         df = pd.read_csv('/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/FTSE_Prices.csv', sep=";")
-        self.S_0 = 7208.81
+        self.S_0 = 7323.41
         self.maturity_tot = np.array([(datetime.strptime(i, '%m/%d/%Y') - datetime.today()).days for i in df.Maturity])/365
         self.strike_tot = df.Strike.to_numpy('float')
         self.Prices = df.Price.to_numpy('float')
@@ -82,10 +86,11 @@ class Numerics(Heston):
             '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/UK OIS spot curve.csv',
             sep=";")
         yield_maturities = df_rates['Maturities'].to_numpy('float')
-        yields = df_rates['Rates'].to_numpy('float')
-        curve_fit, status = calibrate_nss_ols(yield_maturities, yields)
+        yields = df_rates['Rates'].to_numpy('float')/100
+        curve_fit, status = calibrate_ns_ols(yield_maturities, yields, tau0=1.0)
         vfunc = np.vectorize(curve_fit)
-        self.rate_tot = vfunc(self.maturity_tot)/100
+        self.rate_tot = vfunc(np.unique(self.maturity_tot))
+        print("h")
 
 
 
@@ -153,9 +158,11 @@ class Numerics(Heston):
 
 
 
-
+"""
 test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate=0.02, S_0=7208.81, rho=-0.8, vbar=0.10, kappa =0.17 , gamma= 0.2, v0 = 0.10)
 test.market_data()
 test.calibrate()
-
+"""
+t = Numerics(10000, 1000, 2, 7250, 0.02, 7323.41, -0.57, 0.04, 1.58, 0.2, 0.1)
+t.market_data()
 
