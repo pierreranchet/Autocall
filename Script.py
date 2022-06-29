@@ -62,7 +62,7 @@ class Heston():
         # Compute exponent
         S = np.exp(X)
         paths = {"time": time, "S": S[:-1]}
-        return np.exp(-self.rate*self.maturity)*np.mean(np.max(S[:,-1] - self.strike, 0))
+        return np.exp(-self.rate*self.maturity)*np.mean(np.max(self.strike - S[:,-1], 0))
 
 
 
@@ -105,7 +105,7 @@ class Numerics(Heston):
         self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
         prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
         #prices.append(self.GenerateHestonPaths(mat, K, rate))
-
+        #df_test = pd.concat([self.maturity_tot, self.strike_tot, self.rate_tot, prices])
         #prices = np.array(res)
         error = np.sum( (self.Prices-prices)**2 /len(self.Prices) )
 
@@ -113,9 +113,9 @@ class Numerics(Heston):
 
     def calibrate(self):
 
-        params = {"v0": {"x0": 0.1, "bd": [1e-3, 0.1]},
+        params = {"v0": {"x0": 0.1, "bd": [1e-3, 0.3]},
                   "kappa": {"x0": 3, "bd": [1e-3, 5]},
-                  "vbar": {"x0": 0.05, "bd": [1e-3, 0.1]},
+                  "vbar": {"x0": 0.05, "bd": [1e-3, 0.3]},
                   "gamma": {"x0": 0.3, "bd": [1e-2, 1]},
                   "rho": {"x0": -0.8, "bd": [-1, 0]}
                   }
@@ -154,7 +154,7 @@ class Numerics(Heston):
 
 
 
-test = Numerics(nb_simul=1000, nb_steps = 252, maturity=3.0, strike=100.0, rate=0.02, S_0=100.0, rho=-0.7, vbar=0.01, kappa =0.17 , gamma= 0.02, v0 = 0.15)
+test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate=0.02, S_0=7208.81, rho=-0.8, vbar=0.10, kappa =0.17 , gamma= 0.2, v0 = 0.10)
 test.market_data()
 test.calibrate()
 
