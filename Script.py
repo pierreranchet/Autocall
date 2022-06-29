@@ -25,11 +25,11 @@ class Heston():
         self.gamma = gamma
         self.v0 = v0
 
-    #def GenerateHestonPaths(self, mat, K, rate):
-    def GenerateHestonPaths(self):
-        #self.maturity = mat
-        #self.strike = K
-        #self.rate = rate
+    def GenerateHestonPaths(self, mat, K, rate):
+    #def GenerateHestonPaths(self):
+        self.maturity = mat
+        self.strike = K
+        self.rate = rate
 
         dt = self.maturity / float(self.nb_steps)
         #nb_steps = np.round(self.maturity * 252).astype(int)
@@ -89,8 +89,7 @@ class Numerics(Heston):
         yields = df_rates['Rates'].to_numpy('float')/100
         curve_fit, status = calibrate_ns_ols(yield_maturities, yields, tau0=1.0)
         vfunc = np.vectorize(curve_fit)
-        self.rate_tot = vfunc(np.unique(self.maturity_tot))
-        print("h")
+        self.rate_tot = vfunc(self.maturity_tot)
 
 
 
@@ -109,10 +108,12 @@ class Numerics(Heston):
             #self.rate = self.rate_tot[idx]
         self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
         prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+        dd = np.concatenate((prices, self.Prices), axis = 0)
         #prices.append(self.GenerateHestonPaths(mat, K, rate))
+
         #df_test = pd.concat([self.maturity_tot, self.strike_tot, self.rate_tot, prices])
         #prices = np.array(res)
-        error = np.sum( (self.Prices-prices)**2 /len(self.Prices) )
+        error = np.sum( (self.Prices-prices)**2 ) /len(self.Prices)
 
         return error
 
@@ -120,9 +121,9 @@ class Numerics(Heston):
 
         params = {"v0": {"x0": 0.1, "bd": [1e-3, 0.3]},
                   "kappa": {"x0": 3, "bd": [1e-3, 5]},
-                  "vbar": {"x0": 0.05, "bd": [1e-3, 0.3]},
-                  "gamma": {"x0": 0.3, "bd": [1e-2, 1]},
-                  "rho": {"x0": -0.8, "bd": [-1, 0]}
+                  "vbar": {"x0": 0.04, "bd": [1e-3, 0.3]},
+                  "gamma": {"x0": 0.2, "bd": [1e-2, 1]},
+                  "rho": {"x0": -0.57, "bd": [-1, 0]}
                   }
 
         x0 = [param["x0"] for key, param in params.items()]
@@ -163,6 +164,7 @@ test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate
 test.market_data()
 test.calibrate()
 """
-t = Numerics(10000, 1000, 2, 7250, 0.02, 7323.41, -0.57, 0.04, 1.58, 0.2, 0.1)
+t = Numerics(1000, 1000, 2, 7250, 0.02, 7323.41, -0.57, 0.04, 1.58, 0.2, 0.1)
 t.market_data()
+t.calibrate()
 
