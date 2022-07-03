@@ -11,3 +11,4 @@ Sobol pour monte Carlo
 - https://towardsdatascience.com/stochastic-volatility-pricing-in-python-931f4b03d793
 
 - https://towardsdatascience.com/stochastic-volatility-pricing-in-python-931f4b03d793
+https://github.com/teramonagi/py_HestonModel2/blob/master/heston.py

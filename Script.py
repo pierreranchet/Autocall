@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
-from scipy.optimize import minimize
+from scipy.optimize import minimize, fmin
+from scipy import optimize
 from nelson_siegel_svensson import NelsonSiegelSvenssonCurve, NelsonSiegelCurve
 from nelson_siegel_svensson.calibrate import calibrate_ns_ols, calibrate_nss_ols
 import plotly.graph_objects as go
@@ -106,30 +107,42 @@ class Numerics(Heston):
             #self.maturity = self.maturity_tot[idx]
             #self.strike = self.strike_tot[idx]
             #self.rate = self.rate_tot[idx]
-        self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
-        prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
-        dd = np.concatenate((prices, self.Prices), axis = 0)
+        dddd = np.vstack((self.maturity_tot,  self.strike_tot, self.rate_tot, self.Prices)).T
+        result = 0.0
+        for data in dddd:
+            mat, k, r, price_off = data
+            eval = self.GenerateHestonPaths(mat,k,r)
+            result += (eval - price_off) ** 2
+
+        #self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
+
+        #prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+        #dd = np.concatenate((prices, self.Prices), axis = 0)
         #prices.append(self.GenerateHestonPaths(mat, K, rate))
 
         #df_test = pd.concat([self.maturity_tot, self.strike_tot, self.rate_tot, prices])
         #prices = np.array(res)
-        error = np.sum( (self.Prices-prices)**2 ) /len(self.Prices)
+        #error = np.sum( (self.Prices-prices)**2 ) /len(self.Prices)
 
-        return error
+        return result
 
     def calibrate(self):
 
         params = {"v0": {"x0": 0.1, "bd": [1e-3, 1]},
-                  "kappa": {"x0": 3, "bd": [1e-3, 10]},
-                  "vbar": {"x0": 0.04, "bd": [1e-3, 0.8]},
-                  "gamma": {"x0": 0.2, "bd": [1e-2, 2]},
-                  "rho": {"x0": -0.57, "bd": [-1, 1]}
+                  "kappa": {"x0": 3.0, "bd": [1e-3, 10]},
+                  "vbar": {"x0": 0.125, "bd": [1e-3, 0.8]},
+                  "gamma": {"x0": 0.25, "bd": [1e-2, 2]},
+                  "rho": {"x0": -0.7, "bd": [-1, 1]}
                   }
 
-        x0 = [param["x0"] for key, param in params.items()]
+        x0 = np.array([param["x0"] for key, param in params.items()])
         bnds = [param["bd"] for key, param in params.items()]
 
-        result = minimize(self.prices_to_evaluate, x0, tol=1e-3, method='Nelder-Mead', options={'maxiter': 1e4}, bounds=bnds)
+        #test_result = optimize.least_squares(self.prices_to_evaluate, x0, method='lm').x
+        #teesstt = self.prices_to_evaluate(x0)
+
+        calib_params = fmin(self.prices_to_evaluate, x0, maxiter=1e4)
+        result = minimize(self.prices_to_evaluate, x0, tol=1e-3, method='Nelder-Mead', options={'maxiter': 1e4})
         print([param for param in result.x])
         v0, kappa, vbar, gamma, rho = [param for param in result.x]
         self.v0 = v0
@@ -164,7 +177,9 @@ test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate
 test.market_data()
 test.calibrate()
 """
-t = Numerics(1000, 1000, 2, 7250, 0.02, 7323.41, -0.57, 0.04, 1.58, 0.2, 0.1)
+t = Numerics(1000, 252, 2, 7250, 0.02, 7323.41, -0.57, 0.04, 1.58, 0.2, 0.1)
 t.market_data()
 t.calibrate()
+
+
 
