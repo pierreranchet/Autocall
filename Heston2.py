@@ -7,6 +7,7 @@ from scipy.optimize import minimize, fmin
 
 
 
+cnt_loop = 0
 
 def GeneratePathsHestonEuler(NoOfPaths, NoOfSteps, T, r, S_0, kappa, gamma, rho, vbar, v0, strike):
 
@@ -61,28 +62,36 @@ def evaluate(x):
 
 
     error = 0.0
+    global cnt_loop
+    cnt_loop += 1
+    print(cnt_loop)
+    y = 0
     for data in market_data.values:
+        #print(y)
+        y+=1
 
         k, price, mat, r = data
         price_heston = GeneratePathsHestonEuler(NoOfPaths = 1000, NoOfSteps = 1000, T = mat, r = r, S_0 = 7323.41, kappa = kappa, gamma = gamma, rho = rho, vbar = vbar, v0 = v0, strike = k)
-        error = (price_heston - price)**2
+        error += (price_heston - price)**2
 
-    return error
+    return error / len(market_data.values)
 
 
 def calibrate():
     #x = np.array([3.0, 0.25, -0.7, 0.15, 0.1])
     #error = evaluate(x)
 
-    params = {"kappa": {"x0": 3.0, "bd": [1e-3, 10]},
-              "gamma": {"x0": 0.25, "bd": [1e-2, 2]},
+    params = {"kappa": {"x0": 3.0, "bd": [1e-3, 25]},
+              "gamma": {"x0": 0.25, "bd": [1e-2, 6]},
               "rho": {"x0": -0.7, "bd": [-1, 1]},
-              "vbar": {"x0": 0.15, "bd": [1e-3, 0.8]},
+              "vbar": {"x0": 0.15, "bd": [1e-3, 0.99]},
               "v0": {"x0": 0.1, "bd": [1e-3, 1]}
               }
 
     x0 = np.array([param["x0"] for key, param in params.items()])
-    result = minimize(evaluate, x0, tol=1e-3, method='Nelder-Mead', options={'maxiter': 1e4})
+    bnds = np.array([param["bd"] for key, param in params.items()])
+    result = minimize(evaluate, x0, tol=50, method='Nelder-Mead', options={'maxiter': 20}, bounds=bnds)
+
     result2 = fmin(evaluate, x0, maxiter = 50)
 
     print('HH')
