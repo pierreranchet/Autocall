@@ -90,9 +90,9 @@ def calibrate():
 
     x0 = np.array([param["x0"] for key, param in params.items()])
     bnds = np.array([param["bd"] for key, param in params.items()])
-    result = minimize(evaluate, x0, tol=50, method='Nelder-Mead', options={'maxiter': 20}, bounds=bnds)
+    #result = minimize(evaluate, x0, tol=50, method='Nelder-Mead', options={'maxiter': 20}, bounds=bnds)
 
-    result2 = fmin(evaluate, x0, maxiter = 50)
+    #result2 = fmin(evaluate, x0, maxiter = 50)
 
     print('HH')
 

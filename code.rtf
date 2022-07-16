@@ -14,7 +14,8 @@
 \cf4 import \cf5 matplotlib.pyplot \cf4 as \cf5 plt\
 \cf4 import \cf5 pandas \cf4 as \cf5 pd\
 \cf4 from \cf5 datetime \cf4 import \cf5 datetime\
-\cf4 from \cf5 scipy.optimize \cf4 import \cf5 minimize\
+\cf4 from \cf5 scipy.optimize \cf4 import \cf5 minimize\cf4 , \cf5 fmin\
+\cf4 from \cf5 scipy \cf4 import \cf5 optimize\
 \cf4 from \cf5 nelson_siegel_svensson \cf4 import \cf5 NelsonSiegelSvenssonCurve\cf4 , \cf5 NelsonSiegelCurve\
 \cf4 from \cf5 nelson_siegel_svensson.calibrate \cf4 import \cf5 calibrate_ns_ols\cf4 , \cf5 calibrate_nss_ols\
 \cf4 import \cf5 plotly.graph_objects \cf4 as \cf5 go\
@@ -37,7 +38,6 @@
         \cf7 self\cf5 .v0 = v0\
 \
     \cf4 def \cf9 GenerateHestonPaths\cf5 (\cf7 self\cf4 , \cf5 mat\cf4 , \cf5 K\cf4 , \cf5 rate):\
-    \cf2 #def GenerateHestonPaths(self):\
         \cf7 self\cf5 .maturity = mat\
         \cf7 self\cf5 .strike = K\
         \cf7 self\cf5 .rate = rate\
@@ -88,19 +88,21 @@
         \cf8 super\cf5 ().\cf6 __init__\cf5 (nb_simul\cf4 , \cf5 nb_steps\cf4 , \cf5 maturity\cf4 , \cf5 strike\cf4 , \cf5 rate\cf4 , \cf5 S_0\cf4 , \cf5 rho\cf4 , \cf5 vbar\cf4 , \cf5 kappa\cf4 , \cf5 gamma\cf4 , \cf5 v0)\
 \
     \cf4 def \cf9 market_data\cf5 (\cf7 self\cf5 ):\
-        df = pd.read_csv(\cf12 '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/FTSE_Prices.csv'\cf4 , \cf13 sep\cf5 =\cf12 ";"\cf5 )\
+        df = pd.read_csv(\cf12 'FTSE_Prices.csv'\cf4 , \cf13 sep\cf5 =\cf12 ";"\cf5 )\
         \cf7 self\cf5 .S_0 = \cf10 7323.41\
         \cf7 self\cf5 .maturity_tot = np.array([(datetime.strptime(i\cf4 , \cf12 '%m/%d/%Y'\cf5 ) - datetime.today()).days \cf4 for \cf5 i \cf4 in \cf5 df.Maturity])/\cf10 365\
         \cf7 self\cf5 .strike_tot = df.Strike.to_numpy(\cf12 'float'\cf5 )\
         \cf7 self\cf5 .Prices = df.Price.to_numpy(\cf12 'float'\cf5 )\
         df_rates = pd.read_csv(\
-            \cf12 '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/UK OIS spot curve.csv'\cf4 ,\
+            \cf12 'UK OIS spot curve.csv'\cf4 ,\
             \cf13 sep\cf5 =\cf12 ";"\cf5 )\
         yield_maturities = df_rates[\cf12 'Maturities'\cf5 ].to_numpy(\cf12 'float'\cf5 )\
         yields = df_rates[\cf12 'Rates'\cf5 ].to_numpy(\cf12 'float'\cf5 )/\cf10 100\
         \cf5 curve_fit\cf4 , \cf5 status = calibrate_ns_ols(yield_maturities\cf4 , \cf5 yields\cf4 , \cf13 tau0\cf5 =\cf10 1.0\cf5 )\
         vfunc = np.vectorize(curve_fit)\
         \cf7 self\cf5 .rate_tot = vfunc(\cf7 self\cf5 .maturity_tot)\
+\
+        \cf7 self\cf5 .mkt_data = np.vstack((\cf7 self\cf5 .maturity_tot\cf4 , \cf7 self\cf5 .strike_tot\cf4 , \cf7 self\cf5 .rate_tot\cf4 , \cf7 self\cf5 .Prices)).T\
 \
 \
 \
@@ -112,55 +114,40 @@
         \cf7 self\cf5 .gamma = gamma\
         \cf7 self\cf5 .rho = rho\
 \
-        \cf11 prices \cf5 = []\
-        \cf2 #for idx, val in enumerate(self.Prices):\
-            #self.maturity = self.maturity_tot[idx]\
-            #self.strike = self.strike_tot[idx]\
-            #self.rate = self.rate_tot[idx]\
         \cf7 self\cf5 .vec_Heston_price = np.vectorize(\cf7 self\cf5 .GenerateHestonPaths)\
-        prices = \cf7 self\cf5 .vec_Heston_price(\cf7 self\cf5 .maturity_tot\cf4 , \cf7 self\cf5 .strike_tot\cf4 , \cf7 self\cf5 .rate_tot)\
-        \cf11 dd \cf5 = np.concatenate((prices\cf4 , \cf7 self\cf5 .Prices)\cf4 , \cf13 axis \cf5 = \cf10 0\cf5 )\
-        \cf2 #prices.append(self.GenerateHestonPaths(mat, K, rate))\
+        \cf7 self\cf5 .Heston_Prices = \cf7 self\cf5 .vec_Heston_price(\cf7 self\cf5 .maturity_tot\cf4 , \cf7 self\cf5 .strike_tot\cf4 , \cf7 self\cf5 .rate_tot)\
 \
-        #df_test = pd.concat([self.maturity_tot, self.strike_tot, self.rate_tot, prices])\
-        #prices = np.array(res)\
-        \cf5 error = np.sum( (\cf7 self\cf5 .Prices-prices)**\cf10 2 \cf5 ) /\cf8 len\cf5 (\cf7 self\cf5 .Prices)\
+        \cf2 #result = 0.0\
+        #for mkt in self.mkt_data:\
+        #    mat, k, r, price_off = mkt\
+        #    eval = self.GenerateHestonPaths(mat,k,r)\
+        #    result += (eval - price_off) ** 2\
 \
-        \cf4 return \cf5 error\
+        #return result / len(self.mkt_data)\
+\
+\
 \
     \cf4 def \cf9 calibrate\cf5 (\cf7 self\cf5 ):\
 \
-        params = \{\cf12 "v0"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.1\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 0.3\cf5 ]\}\cf4 ,\
-                  \cf12 "kappa"\cf5 : \{\cf12 "x0"\cf5 : \cf10 3\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 5\cf5 ]\}\cf4 ,\
-                  \cf12 "vbar"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.04\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 0.3\cf5 ]\}\cf4 ,\
-                  \cf12 "gamma"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.2\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-2\cf4 , \cf10 1\cf5 ]\}\cf4 ,\
-                  \cf12 "rho"\cf5 : \{\cf12 "x0"\cf5 : -\cf10 0.57\cf4 , \cf12 "bd"\cf5 : [-\cf10 1\cf4 , \cf10 0\cf5 ]\}\
+        params = \{\cf12 "v0"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.1029\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 1\cf5 ]\}\cf4 ,\
+                  \cf12 "kappa"\cf5 : \{\cf12 "x0"\cf5 : \cf10 3.39\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 10\cf5 ]\}\cf4 ,\
+                  \cf12 "vbar"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.0766\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-3\cf4 , \cf10 0.8\cf5 ]\}\cf4 ,\
+                  \cf12 "gamma"\cf5 : \{\cf12 "x0"\cf5 : \cf10 0.2896\cf4 , \cf12 "bd"\cf5 : [\cf10 1e-2\cf4 , \cf10 2\cf5 ]\}\cf4 ,\
+                  \cf12 "rho"\cf5 : \{\cf12 "x0"\cf5 : -\cf10 0.747\cf4 , \cf12 "bd"\cf5 : [-\cf10 1\cf4 , \cf10 1\cf5 ]\}\
                   \}\
 \
-        x0 = [param[\cf12 "x0"\cf5 ] \cf4 for \cf5 key\cf4 , \cf5 param \cf4 in \cf5 params.items()]\
-        bnds = [param[\cf12 "bd"\cf5 ] \cf4 for \cf5 key\cf4 , \cf5 param \cf4 in \cf5 params.items()]\
+        x0 = np.array([param[\cf12 "x0"\cf5 ] \cf4 for \cf5 key\cf4 , \cf5 param \cf4 in \cf5 params.items()])\
+        \cf11 bnds \cf5 = [param[\cf12 "bd"\cf5 ] \cf4 for \cf5 key\cf4 , \cf5 param \cf4 in \cf5 params.items()]\
 \
-        result = minimize(\cf7 self\cf5 .prices_to_evaluate\cf4 , \cf5 x0\cf4 , \cf13 tol\cf5 =\cf10 1e-3\cf4 , \cf13 method\cf5 =\cf12 'SLSQP'\cf4 , \cf13 options\cf5 =\{\cf12 'maxiter'\cf5 : \cf10 1e4\cf5 \}\cf4 , \cf13 bounds\cf5 =bnds)\
-        \cf8 print\cf5 ([param \cf4 for \cf5 param \cf4 in \cf5 result.x])\
-        v0\cf4 , \cf5 kappa\cf4 , \cf5 vbar\cf4 , \cf5 gamma\cf4 , \cf5 rho = [param \cf4 for \cf5 param \cf4 in \cf5 result.x]\
-        \cf7 self\cf5 .v0 = v0\
-        \cf7 self\cf5 .kappa = kappa\
-        \cf7 self\cf5 .vbar = vbar\
-        \cf7 self\cf5 .gamma = gamma\
-        \cf7 self\cf5 .rho = rho\
-        \cf7 self\cf5 .heston_prices = \cf7 self\cf5 .vec_Heston_price(\cf7 self\cf5 .maturity_tot\cf4 , \cf7 self\cf5 .strike_tot\cf4 , \cf7 self\cf5 .rate_tot)\
+        \cf7 self\cf5 .prices_to_evaluate(x0)\
 \
         fig = go.Figure(\cf13 data\cf5 =[\
             go.Mesh3d(\cf13 x\cf5 =\cf7 self\cf5 .maturity_tot\cf4 , \cf13 y\cf5 =\cf7 self\cf5 .strike_tot\cf4 , \cf13 z\cf5 =\cf7 self\cf5 .Prices\cf4 , \cf13 color\cf5 =\cf12 'mediumblue'\cf4 ,\
+                      \cf13 opacity\cf5 =\cf10 0.55\cf5 )\cf4 , \cf5 go.Mesh3d(\cf13 x\cf5 =\cf7 self\cf5 .maturity_tot\cf4 , \cf13 y\cf5 =\cf7 self\cf5 .strike_tot\cf4 , \cf13 z\cf5 =\cf7 self\cf5 .Heston_Prices\cf4 , \cf13 color\cf5 =\cf12 'red'\cf4 ,\
                       \cf13 opacity\cf5 =\cf10 0.55\cf5 )])\
-        fig.add_scatter3d(\cf13 x\cf5 =\cf7 self\cf5 .maturity_tot\cf4 , \cf13 y\cf5 =\cf7 self\cf5 .strike_tot\cf4 , \cf13 z\cf5 =\cf7 self\cf5 .heston_prices\cf4 ,\
-                          \cf13 mode\cf5 =\cf12 'markers'\cf5 )\
+\
         fig.update_layout(\
-            \cf13 title_text\cf5 =\cf12 'Market Prices 
-\f1 \uc0\u55349 \u56384 \u55349 \u56402 \u55349 \u56416 \u8462 
-\f0  vs Calibrated Heston Prices 
-\f1 \uc0\u55349 \u56384 \u55349 \u56398 \u55349 \u56415 \u55349 \u56408 \u55349 \u56402 \u55349 \u56415 \u55349 \u56416 
-\f0 '\cf4 ,\
+            \cf13 title_text\cf5 =\cf12 'Market Prices Mesh vs Calibrated Heston Prices Markers'\cf4 ,\
             \cf13 scene\cf5 =\cf8 dict\cf5 (\cf13 xaxis_title\cf5 =\cf12 'TIME 
 \f1 \uc0\u55349 \u56396 \u55349 \u56402 \u55349 \u56398 \u55349 \u56415 \u55349 \u56416 
 \f0 '\cf4 ,\
@@ -173,11 +160,11 @@
             \cf13 height\cf5 =\cf10 800\cf4 ,\
             \cf13 width\cf5 =\cf10 800\
         \cf5 )\
-        fig.show\
+        fig.show()\
 \
         \cf8 print\cf5 (\cf12 'Hello'\cf5 )\
 \
-\
+\cf4 class \cf5 Autocall()\
 \
 \
 \cf12 """\
@@ -185,9 +172,11 @@ test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate
 test.market_data()\
 test.calibrate()\
 """\
-\cf5 t = Numerics(\cf10 1000\cf4 , \cf10 1000\cf4 , \cf10 2\cf4 , \cf10 7250\cf4 , \cf10 0.02\cf4 , \cf10 7323.41\cf4 , \cf5 -\cf10 0.57\cf4 , \cf10 0.04\cf4 , \cf10 1.58\cf4 , \cf10 0.2\cf4 , \cf10 0.1\cf5 )\
+\cf5 t = Numerics(\cf13 nb_simul \cf5 = \cf10 1000\cf4 , \cf13 nb_steps \cf5 = \cf10 1000\cf4 , \cf13 maturity \cf5 = \cf10 6\cf4 , \cf13 strike \cf5 = \cf10 7208.81\cf4 , \cf13 rate \cf5 = \cf10 0.02\cf4 , \cf13 S_0 \cf5 = \cf10 7208.81\cf4 , \cf13 rho \cf5 = -\cf10 0.747\cf4 , \cf13 vbar \cf5 = \cf10 0.0766\cf4 , \cf13 kappa \cf5 = \cf10 3.39\cf4 , \cf13 gamma \cf5 = \cf10 0.2896\cf4 , \cf13 v0 \cf5 = \cf10 0.1029\cf5 )\
 t.market_data()\
 t.calibrate()\
+\
+\
 \
 \
 }

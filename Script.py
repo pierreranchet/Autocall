@@ -27,7 +27,6 @@ class Heston():
         self.v0 = v0
 
     def GenerateHestonPaths(self, mat, K, rate):
-    #def GenerateHestonPaths(self):
         self.maturity = mat
         self.strike = K
         self.rate = rate
@@ -64,13 +63,10 @@ class Heston():
             time[i + 1] = time[i] + dt
 
         # Compute exponent
-        S = np.exp(X)
-        paths = {"time": time, "S": S[:-1]}
-        return np.exp(-self.rate* self.maturity) * np.mean(np.maximum(self.strike - S[:,-1], 0))
+        self.spots_MC = np.exp(X)
+        paths = {"time": time, "S": self.spots_MC[:-1]}
+        return np.exp(-self.rate* self.maturity) * np.mean(np.maximum(self.strike - self.spots_MC[:,-1], 0))
         #return np.exp(-self.rate*self.maturity)*np.mean(np.max(self.strike - S[:,-1], 0))
-
-
-
 
 
 class Numerics(Heston):
@@ -78,19 +74,21 @@ class Numerics(Heston):
         super().__init__(nb_simul, nb_steps, maturity, strike, rate, S_0, rho, vbar, kappa, gamma, v0)
 
     def market_data(self):
-        df = pd.read_csv('/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/FTSE_Prices.csv', sep=";")
+        df = pd.read_csv('FTSE_Prices.csv', sep=";")
         self.S_0 = 7323.41
         self.maturity_tot = np.array([(datetime.strptime(i, '%m/%d/%Y') - datetime.today()).days for i in df.Maturity])/365
         self.strike_tot = df.Strike.to_numpy('float')
         self.Prices = df.Price.to_numpy('float')
         df_rates = pd.read_csv(
-            '/Users/pierreranchet/Documents/Sauvegarde_PC/Dauphine/Cours/S2/Produits_Structures/Projet_Autocall/UK OIS spot curve.csv',
+            'UK OIS spot curve.csv',
             sep=";")
         yield_maturities = df_rates['Maturities'].to_numpy('float')
         yields = df_rates['Rates'].to_numpy('float')/100
         curve_fit, status = calibrate_ns_ols(yield_maturities, yields, tau0=1.0)
         vfunc = np.vectorize(curve_fit)
         self.rate_tot = vfunc(self.maturity_tot)
+
+        self.mkt_data = np.vstack((self.maturity_tot, self.strike_tot, self.rate_tot, self.Prices)).T
 
 
 
@@ -102,84 +100,82 @@ class Numerics(Heston):
         self.gamma = gamma
         self.rho = rho
 
-        prices = []
-        #for idx, val in enumerate(self.Prices):
-            #self.maturity = self.maturity_tot[idx]
-            #self.strike = self.strike_tot[idx]
-            #self.rate = self.rate_tot[idx]
-        dddd = np.vstack((self.maturity_tot,  self.strike_tot, self.rate_tot, self.Prices)).T
-        result = 0.0
-        for data in dddd:
-            mat, k, r, price_off = data
-            eval = self.GenerateHestonPaths(mat,k,r)
-            result += (eval - price_off) ** 2
+        self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
+        self.Heston_Prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
 
-        #self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
+        #result = 0.0
+        #for mkt in self.mkt_data:
+        #    mat, k, r, price_off = mkt
+        #    eval = self.GenerateHestonPaths(mat,k,r)
+        #    result += (eval - price_off) ** 2
 
-        #prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
-        #dd = np.concatenate((prices, self.Prices), axis = 0)
-        #prices.append(self.GenerateHestonPaths(mat, K, rate))
+        #return result / len(self.mkt_data)
 
-        #df_test = pd.concat([self.maturity_tot, self.strike_tot, self.rate_tot, prices])
-        #prices = np.array(res)
-        #error = np.sum( (self.Prices-prices)**2 ) /len(self.Prices)
 
-        return result
 
     def calibrate(self):
 
-        params = {"v0": {"x0": 0.1, "bd": [1e-3, 1]},
-                  "kappa": {"x0": 3.0, "bd": [1e-3, 10]},
-                  "vbar": {"x0": 0.125, "bd": [1e-3, 0.8]},
-                  "gamma": {"x0": 0.25, "bd": [1e-2, 2]},
-                  "rho": {"x0": -0.7, "bd": [-1, 1]}
+        params = {"v0": {"x0": 0.1029, "bd": [1e-3, 1]},
+                  "kappa": {"x0": 3.39, "bd": [1e-3, 10]},
+                  "vbar": {"x0": 0.0766, "bd": [1e-3, 0.8]},
+                  "gamma": {"x0": 0.2896, "bd": [1e-2, 2]},
+                  "rho": {"x0": -0.747, "bd": [-1, 1]}
                   }
 
         x0 = np.array([param["x0"] for key, param in params.items()])
         bnds = [param["bd"] for key, param in params.items()]
 
-        #test_result = optimize.least_squares(self.prices_to_evaluate, x0, method='lm').x
-        #teesstt = self.prices_to_evaluate(x0)
-
-        calib_params = fmin(self.prices_to_evaluate, x0, maxiter=1e4)
-        result = minimize(self.prices_to_evaluate, x0, tol=1e-3, method='Nelder-Mead', options={'maxiter': 1e4})
-        print([param for param in result.x])
-        v0, kappa, vbar, gamma, rho = [param for param in result.x]
-        self.v0 = v0
-        self.kappa = kappa
-        self.vbar = vbar
-        self.gamma = gamma
-        self.rho = rho
-        self.heston_prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+        self.prices_to_evaluate(x0)
 
         fig = go.Figure(data=[
             go.Mesh3d(x=self.maturity_tot, y=self.strike_tot, z=self.Prices, color='mediumblue',
+                      opacity=0.55), go.Mesh3d(x=self.maturity_tot, y=self.strike_tot, z=self.Heston_Prices, color='red',
                       opacity=0.55)])
-        fig.add_scatter3d(x=self.maturity_tot, y=self.strike_tot, z=self.heston_prices,
-                          mode='markers')
+
         fig.update_layout(
-            title_text='Market Prices 𝑀𝑒𝑠ℎ vs Calibrated Heston Prices 𝑀𝑎𝑟𝑘𝑒𝑟𝑠',
+            title_text='Market Prices Mesh vs Calibrated Heston Prices Markers',
             scene=dict(xaxis_title='TIME 𝑌𝑒𝑎𝑟𝑠',
                        yaxis_title='STRIKES 𝑃𝑡𝑠',
                        zaxis_title='INDEX OPTION PRICE 𝑃𝑡𝑠'),
             height=800,
             width=800
         )
-        fig.show
+        fig.show()
+        return x0
+
+
+class Autocall(Numerics):
+    def __init__(self):
+        super().__init__(nb_simul = 1000, nb_steps = 1000, maturity = 6, strike = 7208.81, rate = 0.02, S_0 = 7208.81, rho = -0.747, vbar = 0.0766, kappa = 3.39, gamma = 0.2896, v0 = 0.1029)
+
+    def get_EQ_price(self):
+        self.market_data()
+        params_MC = self.calibrate()
+        self.v0, self.kappa, self.vbar, self.gamma, self.rho = params_MC
+        self.rate = 0.02
+        Put = self.GenerateHestonPaths(6,2000, self.rate)
+        self.strike = self.S_0
+        final_payoff = self.spots_MC[:, -1].copy()
+        for i in range(0,len(self.spots_MC[:, -1])):
+            if self.spots_MC[i, -1] / self.S_0 > 0.6:
+                final_payoff[i] = 0
+            else:
+                final_payoff[i] = self.strike - self.spots_MC[i, -1]
+        eq_price  = np.mean(final_payoff) * np.exp(-self.rate*self.maturity)
+
+
+
+
 
         print('Hello')
-
-
-
 
 """
 test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate=0.02, S_0=7208.81, rho=-0.8, vbar=0.10, kappa =0.17 , gamma= 0.2, v0 = 0.10)
 test.market_data()
 test.calibrate()
 """
-t = Numerics(1000, 252, 2, 7250, 0.02, 7323.41, -0.57, 0.04, 1.58, 0.2, 0.1)
-t.market_data()
-t.calibrate()
+product = Autocall()
+product.get_EQ_price()
 
 
 
