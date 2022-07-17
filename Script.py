@@ -233,6 +233,7 @@ class Autocall(Numerics):
 product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.0935, nb_simul = 1000, strike_AC = 1, PDI_barrier = 0.6, calibrate = False, kappa = 3.39, v0 = 0.1029, gamma = 0.2896, rho = -0.747, vbar = 0.0766)
 #product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.09, nb_simul = 2, strike_AC = 1, PDI_barrier = 0.6, calibrate = True)
 product.price()
+##test
 
 
 
