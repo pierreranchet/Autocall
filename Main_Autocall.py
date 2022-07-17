@@ -2,7 +2,10 @@
 import numpy as np
 import pandas as pd
 from Numerics_class import Numerics
+import matplotlib.pyplot as plt
+import time
 
+start = time.time()
 
 class Autocall(Numerics):
     def __init__(self, barrier_AC, tenor, coupon_pa, nb_simul, strike_AC, PDI_barrier, calibrate, kappa = None, v0 = None, gamma = None, rho = None, vbar = None):
@@ -79,3 +82,6 @@ class Autocall(Numerics):
 product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.0935, nb_simul = 10000, strike_AC = 1, PDI_barrier = 0.6, calibrate = False, kappa = 3.39, v0 = 0.1029, gamma = 0.2896, rho = -0.747, vbar = 0.0766)
 #product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.09, nb_simul = 2, strike_AC = 1, PDI_barrier = 0.6, calibrate = True)
 Athena_Price = product.price()
+print(Athena_Price)
+end = time.time()
+print(end - start, "seconds")
