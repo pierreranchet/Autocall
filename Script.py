@@ -135,7 +135,8 @@ class Numerics(Heston):
         bnds = [param["bd"] for key, param in params.items()]
         result = minimize(self.prices_to_evaluate, x0, tol=50, method='Nelder-Mead', options={'maxiter': 1}, bounds=bnds)
         self.v0, self.kappa, self.vbar, self.gamma, self.rho = result.x
-        error = self.prices_to_evaluate(x0)
+        ## To check the value of the final loss function after calibration
+        #error = self.prices_to_evaluate(x0)
 
         return x0
 
@@ -190,7 +191,8 @@ class Autocall(Numerics):
         return eq_price
 
     def AC_probabilities(self):
-        self.list_obs = [2,3,4,5,6]
+        self.liste_t = [2,3,4,5,6]
+        self.list_obs = [round((i/self.tenor) * self.nb_steps) for i in self.liste_t]
         times = self.get_spots_Heston(rho=self.rho, v0=self.v0, vbar=self.vbar, gamma=self.gamma)["time"]
         self.discrete_spots = self.spots_matrix[:,self.list_obs]
         probas = []
@@ -202,18 +204,15 @@ class Autocall(Numerics):
         return probas
 
     def price_coupon_AC(self):
-        df_temp = pd.DataFrame(self.discrete_spots, columns=self.list_obs)
+        df_temp = pd.DataFrame(self.discrete_spots, columns=self.liste_t)
         payoff_temp = df_temp.copy() * 0
         cnt = 0
-        for line in range(len(payoff_temp.index)):
-            for i in self.list_obs:
-                if i>2:
-                    print(df_temp.loc[line, 2:i - 1], "to be compared with")
-                    print(df_temp.loc[line,i], 'with')
-                    #df_temp[i] = (df_temp[self.list_obs[0:i - 2]] < self.barrier_AC * self.S_0).any(axis=1)
-
-
-        return ""
+        for i in range(len(df_temp.index)):
+            for j in self.liste_t:
+                if df_temp.loc[i, j] >  self.barrier_AC * self.S_0:
+                    payoff_temp.loc[i, j] = self.coupon_pa * j * np.exp(-self.vfunc_rate(j) * j)
+                    break
+        return payoff_temp.sum(axis=1).sum()/self.nb_simul
 
 
     def price(self):
@@ -221,27 +220,18 @@ class Autocall(Numerics):
         if self.calibrate:
             self.calibrate_func()
 
+        #self.plot_prices_surface()
+
         self.spots_matrix = self.get_spots_Heston(rho=self.rho, v0=self.v0, vbar=self.vbar, gamma=self.gamma)["S"]
         DIP_price = self.get_EQ_price()
         AC_probas = self.AC_probabilities()
-        funding = ((self.df_CDS_rate.CDS + self.df_CDS_rate.sofr) * self.df_CDS_rate.index)[self.list_obs].dot(AC_probas)
+        funding = ((self.df_CDS_rate.CDS + self.df_CDS_rate.sofr) * self.df_CDS_rate.index)[self.liste_t].dot(AC_probas)
         price_coupon = self.price_coupon_AC()
+        final_price = 1 - DIP_price - funding + price_coupon
+        return final_price
 
-
-
-
-        print('Hello')
-
-
-
-"""
-test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate=0.02, S_0=7208.81, rho=-0.8, vbar=0.10, kappa =0.17 , gamma= 0.2, v0 = 0.10)
-test.market_data()
-test.calibrate()
-"""
-product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.09, nb_simul = 1000, strike_AC = 1, PDI_barrier = 0.6, calibrate = False, kappa = 3.39, v0 = 0.1029, gamma = 0.2896, rho = -0.747, vbar = 0.0766)
+product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.0935, nb_simul = 1000, strike_AC = 1, PDI_barrier = 0.6, calibrate = False, kappa = 3.39, v0 = 0.1029, gamma = 0.2896, rho = -0.747, vbar = 0.0766)
 #product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.09, nb_simul = 2, strike_AC = 1, PDI_barrier = 0.6, calibrate = True)
-
 product.price()
 
 
