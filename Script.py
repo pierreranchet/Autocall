@@ -4,13 +4,12 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from datetime import datetime
 from scipy.optimize import minimize, fmin
-from scipy import optimize
-from nelson_siegel_svensson import NelsonSiegelSvenssonCurve, NelsonSiegelCurve
+
 from nelson_siegel_svensson.calibrate import calibrate_ns_ols, calibrate_nss_ols
 import plotly.graph_objects as go
-from plotly.graph_objs import Surface
-from plotly.offline import iplot, init_notebook_mode
 
+
+cnt_optimizer = 0
 
 class Heston():
     def __init__(self, nb_simul: int, nb_steps, maturity: float, strike: float, rate: float, S_0: float, rho: float, vbar:float, kappa: float, gamma: float, v0: float):
@@ -28,7 +27,7 @@ class Heston():
 
 
     def GenerateHestonPaths(self, mat, K, rate):
-        paths_time = self.get_spots_Heston(self, mat=mat, K=K, rate=rate)["S"]
+        paths_time = self.get_spots_Heston(mat, K, rate)["S"]
         return np.exp(-self.rate* self.maturity) * np.mean(np.maximum(self.strike - paths_time[:,-1], 0))
 
 
@@ -82,7 +81,12 @@ class Numerics(Heston):
 
     def market_data(self):
         ## Market datas from csv that ca be accessed from Autocall class with inheritance
+        self.df_CDS_rate = pd.read_csv('CDS.csv', sep=";")
+        self.df_CDS_rate.CDS = self.df_CDS_rate.CDS * 0.0001
+        self.df_CDS_rate = self.df_CDS_rate.set_index(['time'], drop=True)
+
         df = pd.read_csv('FTSE_Prices.csv', sep=";")
+
         self.S_0 = 7159.01
         self.maturity_tot = np.array([(datetime.strptime(i, '%m/%d/%Y') - datetime.today()).days for i in df.Maturity])/365
         self.strike_tot = df.Strike.to_numpy('float')
@@ -98,6 +102,10 @@ class Numerics(Heston):
 
 
     def prices_to_evaluate(self, x):
+        global cnt_optimizer
+        cnt_optimizer += 1
+        print(cnt_optimizer)
+
         v0, kappa, vbar, gamma, rho = [param for param in x]
         self.v0 = v0
         self.kappa = kappa
@@ -105,16 +113,13 @@ class Numerics(Heston):
         self.gamma = gamma
         self.rho = rho
 
-        self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
-        self.Heston_Prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+        result = 0.0
+        for mkt in self.mkt_data:
+            mat, k, r, price_off = mkt
+            eval = self.GenerateHestonPaths(mat,k,r)
+            result += (eval - price_off) ** 2
 
-        #result = 0.0
-        #for mkt in self.mkt_data:
-        #    mat, k, r, price_off = mkt
-        #    eval = self.GenerateHestonPaths(mat,k,r)
-        #    result += (eval - price_off) ** 2
-
-        #return result / len(self.mkt_data)
+        return result / len(self.mkt_data)
 
 
     def calibrate_func(self):
@@ -128,12 +133,17 @@ class Numerics(Heston):
 
         x0 = np.array([param["x0"] for key, param in params.items()])
         bnds = [param["bd"] for key, param in params.items()]
+        result = minimize(self.prices_to_evaluate, x0, tol=50, method='Nelder-Mead', options={'maxiter': 1}, bounds=bnds)
+        self.v0, self.kappa, self.vbar, self.gamma, self.rho = result.x
+        error = self.prices_to_evaluate(x0)
 
-        self.prices_to_evaluate(x0)
         return x0
 
     def plot_prices_surface(self):
-        ## Method that can be used
+        print('Computing prices matrix with Heston')
+        self.vec_Heston_price = np.vectorize(self.GenerateHestonPaths)
+        self.Heston_Prices = self.vec_Heston_price(self.maturity_tot, self.strike_tot, self.rate_tot)
+
         fig = go.Figure(data=[
             go.Mesh3d(x=self.maturity_tot, y=self.strike_tot, z=self.Prices, color='mediumblue',
                       opacity=0.55), go.Mesh3d(x=self.maturity_tot, y=self.strike_tot, z=self.Heston_Prices, color='red',
@@ -170,19 +180,59 @@ class Autocall(Numerics):
 
     def get_EQ_price(self):
 
+        final_payoff = self.spots_matrix[:, -1].copy()
+        for i in range(0,len(self.spots_matrix[:, -1])):
+            if self.spots_matrix[i, -1] / self.S_0 > self.PDI_barrier:
+                final_payoff[i] = 0
+            else:
+                final_payoff[i] = self.strike_AC * self.S_0 - self.spots_matrix[i, -1]
+        eq_price = np.mean(final_payoff) * np.exp(-self.vfunc_rate(self.tenor)*self.tenor) / self.S_0
+        return eq_price
+
+    def AC_probabilities(self):
+        self.list_obs = [2,3,4,5,6]
+        times = self.get_spots_Heston(rho=self.rho, v0=self.v0, vbar=self.vbar, gamma=self.gamma)["time"]
+        self.discrete_spots = self.spots_matrix[:,self.list_obs]
+        probas = []
+        probas.append(np.where((self.discrete_spots[:,0] > self.S_0) , self.discrete_spots[:,0] > self.S_0, 0).sum() / self.nb_simul)
+        probas.append(np.where((self.discrete_spots[:, 0] < self.S_0),self.discrete_spots[:, 1] > self.S_0, 0).sum() / self.nb_simul)
+        probas.append(np.where((self.discrete_spots[:, 0] < self.S_0) & (self.discrete_spots[:, 1] < self.S_0), self.discrete_spots[:, 2] > self.S_0, 0).sum() /  self.nb_simul)
+        probas.append(np.where((self.discrete_spots[:, 0] < self.S_0) & (self.discrete_spots[:, 1] < self.S_0) & (self.discrete_spots[:, 2] < self.S_0), self.discrete_spots[:, 3] > self.S_0, 0).sum() / self.nb_simul)
+        probas.append(1-sum(probas))
+        return probas
+
+    def price_coupon_AC(self):
+        df_temp = pd.DataFrame(self.discrete_spots, columns=self.list_obs)
+        payoff_temp = df_temp.copy() * 0
+        cnt = 0
+        for line in range(len(payoff_temp.index)):
+            for i in self.list_obs:
+                if i>2:
+                    print(df_temp.loc[line, 2:i - 1], "to be compared with")
+                    print(df_temp.loc[line,i], 'with')
+                    #df_temp[i] = (df_temp[self.list_obs[0:i - 2]] < self.barrier_AC * self.S_0).any(axis=1)
+
+
+        return ""
+
+
+    def price(self):
         self.market_data()
         if self.calibrate:
             self.calibrate_func()
 
-        spots_matrix = self.get_spots_Heston(rho= self.rho, v0=self.v0, vbar = self.vbar,gamma = self.gamma)["S"]
-        final_payoff = spots_matrix[:, -1].copy()
-        for i in range(0,len(spots_matrix[:, -1])):
-            if spots_matrix[i, -1] / self.S_0 > self.PDI_barrier:
-                final_payoff[i] = 0
-            else:
-                final_payoff[i] = self.strike_AC - spots_matrix[i, -1]
-        eq_price  = np.mean(final_payoff) * np.exp(-self.vfunc_rate(self.tenor)*self.tenor)
+        self.spots_matrix = self.get_spots_Heston(rho=self.rho, v0=self.v0, vbar=self.vbar, gamma=self.gamma)["S"]
+        DIP_price = self.get_EQ_price()
+        AC_probas = self.AC_probabilities()
+        funding = ((self.df_CDS_rate.CDS + self.df_CDS_rate.sofr) * self.df_CDS_rate.index)[self.list_obs].dot(AC_probas)
+        price_coupon = self.price_coupon_AC()
+
+
+
+
         print('Hello')
+
+
 
 """
 test = Numerics(nb_simul=10000, nb_steps = 252, maturity=1, strike=7208.81, rate=0.02, S_0=7208.81, rho=-0.8, vbar=0.10, kappa =0.17 , gamma= 0.2, v0 = 0.10)
@@ -190,7 +240,9 @@ test.market_data()
 test.calibrate()
 """
 product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.09, nb_simul = 1000, strike_AC = 1, PDI_barrier = 0.6, calibrate = False, kappa = 3.39, v0 = 0.1029, gamma = 0.2896, rho = -0.747, vbar = 0.0766)
-product.get_EQ_price()
+#product = Autocall(barrier_AC = 1, tenor = 6, coupon_pa = 0.09, nb_simul = 2, strike_AC = 1, PDI_barrier = 0.6, calibrate = True)
+
+product.price()
 
 
 
